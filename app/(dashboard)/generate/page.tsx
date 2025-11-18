@@ -241,7 +241,7 @@ export default function GenerateResumePage() {
           </Card>
 
           <Card>
-            <CardContent className="pt-6">
+            <CardContent className="px-5 py-1">
               <div className="flex items-center gap-2">
                 <Checkbox
                   id="saveResume"

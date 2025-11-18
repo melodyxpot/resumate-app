@@ -15,7 +15,7 @@ export default function SettingsPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [defaultProjectId, setDefaultProjectId] = useState<string>('');
+  const [defaultProjectId, setDefaultProjectId] = useState<string>('none');
   const [saveResumeByDefault, setSaveResumeByDefault] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -34,7 +34,7 @@ export default function SettingsPage() {
 
     setUser(user);
     setProjects(projects);
-    setDefaultProjectId(user.defaultProjectId || '');
+    setDefaultProjectId(user.defaultProjectId || 'none');
     setSaveResumeByDefault(user.saveResumeByDefault || false);
   };
 
@@ -45,7 +45,7 @@ export default function SettingsPage() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          defaultProjectId: defaultProjectId || undefined,
+          defaultProjectId: defaultProjectId === 'none' ? undefined : defaultProjectId,
           saveResumeByDefault,
         }),
       });
@@ -113,7 +113,7 @@ export default function SettingsPage() {
                   <SelectValue placeholder="No default project" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No default project</SelectItem>
+                  <SelectItem value="none">No default project</SelectItem>
                   {projects.map((project) => (
                     <SelectItem key={project._id!.toString()} value={project._id!.toString()}>
                       {project.projectName}
