@@ -8,17 +8,18 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, Sparkles, Download, X } from 'lucide-react';
+import { Loader2, Sparkles, Download, X, FileText } from 'lucide-react';
 import { Project } from '@/types';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 export default function GenerateResumePage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<string>('');
   const [jobTitle, setJobTitle] = useState('');
   const [companyName, setCompanyName] = useState('');
-  const [jobDescription, setJobDescription] = useState('');
-  const [requiredSkills, setRequiredSkills] = useState<string[]>([]);
-  const [skillInput, setSkillInput] = useState('');
+  const [aboutRole, setAboutRole] = useState('');
+  const [aboutCompany, setAboutCompany] = useState('');
+  const [requiredSkills, setRequiredSkills] = useState('');
   const [saveResume, setSaveResume] = useState(false);
   const [loading, setLoading] = useState(false);
   const [generatedResume, setGeneratedResume] = useState<{
@@ -47,12 +48,6 @@ export default function GenerateResumePage() {
     }
   };
 
-  const addSkill = () => {
-    if (skillInput.trim()) {
-      setRequiredSkills([...requiredSkills, skillInput.trim()]);
-      setSkillInput('');
-    }
-  };
 
   const handleGenerate = async () => {
     if (!selectedProject) {
@@ -72,7 +67,8 @@ export default function GenerateResumePage() {
           jobInfo: {
             jobTitle,
             companyName,
-            jobDescription,
+            aboutRole,
+            aboutCompany,
             requiredSkills,
           },
           shouldSave: saveResume,
@@ -95,8 +91,8 @@ export default function GenerateResumePage() {
             jobInfo: {
               jobTitle,
               companyName,
-              jobDescription,
-              requiredSkills,
+              jobDescription: aboutRole, // Mapping back for backward compatibility
+              requiredSkills: requiredSkills.split('\n').filter(s => s.trim()),
             },
           }),
         });
@@ -112,15 +108,22 @@ export default function GenerateResumePage() {
   const downloadResume = () => {
     if (!generatedResume) return;
 
-    const blob = new Blob([generatedResume.html], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `resume-${companyName.replace(/\s+/g, '-')}.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert('Please allow popups to download the resume');
+      return;
+    }
+
+    printWindow.document.write(generatedResume.html);
+    printWindow.document.close();
+    
+    // Wait for content to load then print
+    printWindow.onload = () => {
+      printWindow.focus();
+      printWindow.print();
+      // Optional: close after print
+      // printWindow.close();
+    };
   };
 
   return (
@@ -131,6 +134,31 @@ export default function GenerateResumePage() {
           Create a job-specific resume tailored with AI
         </p>
       </div>
+
+      <Dialog open={loading} onOpenChange={() => {}}>
+        <DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle className="text-center">Generating Resume</DialogTitle>
+            <DialogDescription className="text-center">
+              AI is analyzing the job description and crafting your resume...
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col justify-center items-center py-8 space-y-4">
+            <div className="relative">
+              <div className="absolute inset-0 rounded-full opacity-20 animate-ping bg-primary"></div>
+              <div className="flex relative justify-center items-center w-16 h-16 rounded-full bg-primary/10 text-primary">
+                <Sparkles className="w-8 h-8 animate-spin-slow" />
+              </div>
+            </div>
+            <div className="w-full max-w-xs space-y-2">
+              <div className="h-1.5 w-full bg-primary/10 rounded-full overflow-hidden">
+                <div className="h-full bg-primary rounded-full animate-indeterminate-bar"></div>
+              </div>
+              <p className="text-xs text-center text-muted-foreground">Generating professional content...</p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="space-y-6">
@@ -180,47 +208,34 @@ export default function GenerateResumePage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="jobDescription">Job Description *</Label>
+                <Label htmlFor="aboutRole">About the Role *</Label>
                 <Textarea
-                  id="jobDescription"
-                  placeholder="Paste the job description here..."
-                  value={jobDescription}
-                  onChange={(e) => setJobDescription(e.target.value)}
+                  id="aboutRole"
+                  placeholder="Paste description about the role here..."
+                  value={aboutRole}
+                  onChange={(e) => setAboutRole(e.target.value)}
                   rows={6}
                 />
               </div>
               <div className="space-y-2">
-                <Label>Required Skills</Label>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Add a required skill"
-                    value={skillInput}
-                    onChange={(e) => setSkillInput(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addSkill())}
-                  />
-                  <Button type="button" onClick={addSkill}>
-                    Add
-                  </Button>
-                </div>
-                {requiredSkills.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {requiredSkills.map((skill, idx) => (
-                      <div
-                        key={idx}
-                        className="flex items-center gap-1 px-3 py-1 rounded-full bg-primary/10 text-primary"
-                      >
-                        <span className="text-sm">{skill}</span>
-                        <button
-                          type="button"
-                          onClick={() => setRequiredSkills(requiredSkills.filter((_, i) => i !== idx))}
-                          className="hover:text-primary/70"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <Label htmlFor="aboutCompany">About the Company (Optional)</Label>
+                <Textarea
+                  id="aboutCompany"
+                  placeholder="Paste description about the company here..."
+                  value={aboutCompany}
+                  onChange={(e) => setAboutCompany(e.target.value)}
+                  rows={4}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="requiredSkills">Required Skills (Optional)</Label>
+                <Textarea
+                  id="requiredSkills"
+                  placeholder="Paste required skills here..."
+                  value={requiredSkills}
+                  onChange={(e) => setRequiredSkills(e.target.value)}
+                  rows={4}
+                />
               </div>
             </CardContent>
           </Card>
@@ -242,7 +257,7 @@ export default function GenerateResumePage() {
 
           <Button
             onClick={handleGenerate}
-            disabled={loading || !selectedProject || !jobTitle || !companyName || !jobDescription}
+            disabled={loading || !selectedProject || !jobTitle || !companyName || !aboutRole}
             className="w-full"
             size="lg"
           >

@@ -7,8 +7,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Upload, Loader2, Plus, X } from 'lucide-react';
+import { Upload, Loader2, Plus, X, FileText } from 'lucide-react';
 import { Experience, Education, ProjectPortfolio } from '@/types';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 export default function NewProjectPage() {
   const router = useRouter();
@@ -31,9 +32,28 @@ export default function NewProjectPage() {
   const [skills, setSkills] = useState<string[]>([]);
   const [skillInput, setSkillInput] = useState('');
   const [projectPortfolios, setProjectPortfolios] = useState<ProjectPortfolio[]>([]);
+  const [dragActive, setDragActive] = useState(false);
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleFile = async (file: File) => {
     if (!file) return;
 
     setUploading(true);
@@ -72,6 +92,13 @@ export default function NewProjectPage() {
       alert('Failed to parse resume. Please try again.');
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleFile(file);
     }
   };
 
@@ -134,6 +161,31 @@ export default function NewProjectPage() {
         </p>
       </div>
 
+      <Dialog open={uploading} onOpenChange={() => {}}>
+        <DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle className="text-center">Parsing Resume</DialogTitle>
+            <DialogDescription className="text-center">
+              Please wait while we extract information from your resume...
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col justify-center items-center py-8 space-y-4">
+            <div className="relative">
+              <div className="absolute inset-0 rounded-full opacity-20 animate-ping bg-primary"></div>
+              <div className="flex relative justify-center items-center w-16 h-16 rounded-full bg-primary/10 text-primary">
+                <FileText className="w-8 h-8 animate-pulse" />
+              </div>
+            </div>
+            <div className="w-full max-w-xs space-y-2">
+              <div className="h-1.5 w-full bg-primary/10 rounded-full overflow-hidden">
+                <div className="h-full bg-primary rounded-full animate-indeterminate-bar"></div>
+              </div>
+              <p className="text-xs text-center text-muted-foreground">This may take a few moments</p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Card className="mb-6">
         <CardHeader>
           <CardTitle>Upload Resume (Optional)</CardTitle>
@@ -142,19 +194,38 @@ export default function NewProjectPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <label className="flex flex-col gap-2 justify-center items-center px-6 py-8 rounded-lg border-2 border-dashed transition-colors cursor-pointer border-border hover:border-primary hover:bg-accent">
-            <Upload className="w-8 h-8 text-muted-foreground" />
-            <span className="text-sm font-medium text-foreground">
-              {uploading ? 'Parsing resume...' : 'Click to upload PDF or DOCX'}
-            </span>
+          <div 
+            className={`flex flex-col gap-2 justify-center items-center px-6 py-10 rounded-lg border-2 border-dashed transition-all cursor-pointer ${
+              dragActive 
+                ? 'border-primary bg-primary/5 scale-[1.01]' 
+                : 'border-border hover:border-primary hover:bg-accent'
+            }`}
+            onDragEnter={handleDrag}
+            onDragLeave={handleDrag}
+            onDragOver={handleDrag}
+            onDrop={handleDrop}
+            onClick={() => document.getElementById('resume-upload')?.click()}
+          >
+            <div className={`p-3 rounded-full transition-colors ${dragActive ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>
+              <Upload className="w-6 h-6" />
+            </div>
+            <div className="text-center">
+              <p className="text-sm font-medium text-foreground">
+                {dragActive ? "Drop your file here" : "Click to upload or drag and drop"}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                PDF or DOCX (max 5MB)
+              </p>
+            </div>
             <input
+              id="resume-upload"
               type="file"
               accept=".pdf,.docx"
               onChange={handleFileUpload}
               disabled={uploading}
               className="hidden"
             />
-          </label>
+          </div>
         </CardContent>
       </Card>
 
