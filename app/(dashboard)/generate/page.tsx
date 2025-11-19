@@ -81,6 +81,8 @@ export default function GenerateResumePage() {
       setGeneratedResume(data);
 
       if (saveResume && data.blobUrl) {
+        // This blobUrl is HTML, but we will save it for now.
+        // Real PDF saving would require client-side generation and upload.
         await fetch('/api/resumes', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -105,25 +107,32 @@ export default function GenerateResumePage() {
     }
   };
 
-  const downloadResume = () => {
+  const downloadResume = async () => {
     if (!generatedResume) return;
 
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      alert('Please allow popups to download the resume');
-      return;
-    }
-
-    printWindow.document.write(generatedResume.html);
-    printWindow.document.close();
+    // Use dynamic import for html2pdf.js since it relies on window
+    const html2pdf = (await import('html2pdf.js')).default;
     
-    // Wait for content to load then print
-    printWindow.onload = () => {
-      printWindow.focus();
-      printWindow.print();
-      // Optional: close after print
-      // printWindow.close();
-    };
+    const element = document.createElement('div');
+    element.innerHTML = generatedResume.html;
+    // Add print-specific styles to ensure it looks good
+    const style = document.createElement('style');
+    style.innerHTML = `
+      body { margin: 0; padding: 0; }
+      @page { margin: 0; }
+    `;
+    element.appendChild(style);
+
+    const opt = {
+      margin: 0,
+      filename: `resume-${companyName.replace(/\s+/g, '-')}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    } as any;
+
+    // Generate PDF
+    html2pdf().set(opt).from(element).save();
   };
 
   return (
@@ -241,7 +250,7 @@ export default function GenerateResumePage() {
           </Card>
 
           <Card>
-            <CardContent className="px-5 py-1">
+            <CardContent className="pt-6">
               <div className="flex items-center gap-2">
                 <Checkbox
                   id="saveResume"
@@ -275,7 +284,7 @@ export default function GenerateResumePage() {
           </Button>
         </div>
 
-        <Card className="h-fit lg:sticky lg:top-8">
+        <Card className="h-fit lg:sticky lg:top-8 overflow-hidden">
           <CardHeader>
             <CardTitle>Preview</CardTitle>
             <CardDescription>
@@ -287,13 +296,13 @@ export default function GenerateResumePage() {
               <div className="space-y-4">
                 <div className="p-4 max-h-[600px] overflow-auto rounded-lg border border-border bg-card">
                   <div
-                    className="prose prose-sm max-w-none"
+                    className="prose prose-sm max-w-none break-words"
                     dangerouslySetInnerHTML={{ __html: generatedResume.html }}
                   />
                 </div>
                 <Button onClick={downloadResume} className="w-full">
                   <Download className="mr-2 w-4 h-4" />
-                  Download Resume
+                  Download PDF
                 </Button>
               </div>
             ) : (
